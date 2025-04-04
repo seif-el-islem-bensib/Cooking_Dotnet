@@ -1,0 +1,107 @@
+@using RestaurantManagement.Core.Interfaces
+@using RestaurantManagement.Shared.DTOs.Plates
+
+@inject IPlateService PlateService
+@inject IDialogService DialogService
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="form" @bind-IsValid="@success">
+            <MudTextField @bind-Value="_request.Name"
+                         Label="Name"
+                         Required="true"
+                         RequiredError="Name is required"
+                         Class="mb-4" />
+
+            <MudTextField @bind-Value="_request.Description"
+                         Label="Description"
+                         Required="true"
+                         RequiredError="Description is required"
+                         Lines="3"
+                         Class="mb-4" />
+
+            <MudNumericField @bind-Value="_request.Price"
+                            Label="Price"
+                            Required="true"
+                            RequiredError="Price is required"
+                            Min="0"
+                            Format="F2"
+                            Class="mb-4" />
+
+            <MudTextField @bind-Value="_request.ImageUrl"
+                         Label="Image URL"
+                         Required="true"
+                         RequiredError="Image URL is required"
+                         Class="mb-4" />
+
+            <MudSwitch @bind-Value="_request.IsAvailable"
+                      Label="Available"
+                      Color="Color.Primary"
+                      Class="mb-4" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" 
+                  OnClick="Submit" 
+                  Disabled="@(!success)">
+            @(Plate == null ? "Create" : "Update")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public PlateResponse? Plate { get; set; }
+
+    private MudForm form = default!;
+    private bool success;
+    private PlateRequest _request = new();
+
+    protected override void OnInitialized()
+    {
+        if (Plate != null)
+        {
+            _request = new PlateRequest
+            {
+                Name = Plate.Name,
+                Description = Plate.Description,
+                Price = Plate.Price,
+                ImageUrl = Plate.ImageUrl,
+                IsAvailable = Plate.IsAvailable
+            };
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task Submit()
+    {
+        await form.Validate();
+        if (form.IsValid)
+        {
+            try
+            {
+                if (Plate != null)
+                {
+                    await PlateService.UpdatePlateAsync(Plate.Id, _request);
+                }
+                else
+                {
+                    await PlateService.CreatePlateAsync(_request);
+                }
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            catch (Exception ex)
+            {
+                await DialogService.ShowMessageBox(
+                    "Error",
+                    $"Failed to {(Plate == null ? "create" : "update")} plate: {ex.Message}",
+                    yesText: "OK");
+            }
+        }
+    }
+} 

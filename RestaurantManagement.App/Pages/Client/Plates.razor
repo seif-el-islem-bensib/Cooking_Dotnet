@@ -1,0 +1,155 @@
+@page "/plates"
+@layout ClientLayout
+@using RestaurantManagement.Core.Interfaces
+@using RestaurantManagement.Shared.DTOs.Plates
+@using RestaurantManagement.Shared.DTOs.Reservations
+@using RestaurantManagement.Shared.Enums
+@using RestaurantManagement.App.Components
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+
+@inject IPlateService PlateService
+@inject IReservationService ReservationService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IDialogService DialogService
+@inject NavigationManager NavigationManager
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" Class="mb-4">Available Plates</MudText>
+
+    <MudGrid>
+        @foreach (var plate in _plates)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <MudCard>
+                    @if (!string.IsNullOrEmpty(plate.ImageUrl))
+                    {
+                        <MudCardMedia Image="@plate.ImageUrl" Height="200" />
+                    }
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6">@plate.Name</MudText>
+                        <MudText Typo="Typo.body2">@plate.Description</MudText>
+                        <MudText Typo="Typo.h6" Class="mt-2">$@plate.Price.ToString("F2")</MudText>
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Color="Color.Primary" 
+                                  Variant="Variant.Filled"
+                                  OnClick="@(() => OpenReservationDialog(plate))">
+                            Make Reservation
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+</MudContainer>
+
+<MudDialog @bind-IsVisible="_dialogVisible">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Reserve @_selectedPlate?.Name</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudDatePicker @bind-Date="_reservationDate" Label="Reservation Date" />
+        <MudTextField @bind-Value="_specialRequests" Label="Special Requests" Lines="3" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CloseDialog">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="HandleReservation">Reserve</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<PlateResponse> _plates = new();
+    private bool _dialogVisible;
+    private PlateResponse? _selectedPlate;
+    private DateTime? _reservationDate;
+    private string _specialRequests = string.Empty;
+    private string? _userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated != true)
+            {
+                NavigationManager.NavigateTo("/login");
+                return;
+            }
+
+            _userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            _plates = await PlateService.GetAllPlatesAsync();
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox(
+                "Error",
+                $"Failed to load plates: {ex.Message}",
+                yesText: "OK");
+        }
+    }
+
+    private async Task OpenReservationDialog(PlateResponse plate)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Plate", plate },
+            { "UserId", _userId }
+        };
+
+        var dialog = await DialogService.ShowAsync<ReservationDialog>(
+            "Make Reservation",
+            parameters,
+            new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall });
+
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            await DialogService.ShowMessageBox(
+                "Success",
+                "Reservation created successfully!",
+                yesText: "OK");
+        }
+    }
+
+    private void CloseDialog()
+    {
+        _dialogVisible = false;
+        _selectedPlate = null;
+        _reservationDate = null;
+        _specialRequests = string.Empty;
+    }
+
+    private async Task HandleReservation()
+    {
+        if (_selectedPlate == null || !_reservationDate.HasValue || string.IsNullOrEmpty(_userId))
+            return;
+
+        try
+        {
+            var request = new ReservationRequest
+            {
+                UserId = _userId,
+                PlateId = _selectedPlate.Id,
+                ReservationDate = _reservationDate.Value,
+                SpecialRequests = _specialRequests
+            };
+
+            await ReservationService.CreateReservationAsync(request);
+            await DialogService.ShowMessageBox(
+                "Success",
+                "Reservation created successfully!",
+                yesText: "OK");
+            CloseDialog();
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox(
+                "Error",
+                $"Failed to create reservation: {ex.Message}",
+                yesText: "OK");
+        }
+    }
+} 

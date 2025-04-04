@@ -1,0 +1,9 @@
+@inject NavigationManager Navigation
+@inject IAuthService AuthService
+
+@code {
+    protected override void OnInitialized()
+    {
+        Navigation.NavigateTo("/login", true);
+    }
+} 

@@ -1,0 +1,107 @@
+@page "/reservations"
+@layout ClientLayout
+@using RestaurantManagement.Core.Interfaces
+@using RestaurantManagement.Shared.DTOs.Reservations
+@using RestaurantManagement.Shared.Enums
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+
+@inject IReservationService ReservationService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IDialogService DialogService
+@inject NavigationManager NavigationManager
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" Class="mb-4">My Reservations</MudText>
+
+    <MudTable Items="@_reservations" Dense="true" Hover="true" Loading="@_loading">
+        <HeaderContent>
+            <MudTh>Plate</MudTh>
+            <MudTh>Date</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Plate">@context.PlateName</MudTd>
+            <MudTd DataLabel="Date">@context.ReservationDate.ToString("g")</MudTd>
+            <MudTd DataLabel="Status">@context.Status</MudTd>
+            <MudTd>
+                @if (context.Status != ReservationStatus.Cancelled)
+                {
+                    <MudButton Color="Color.Error" 
+                              Variant="Variant.Filled" 
+                              Size="Size.Small"
+                              OnClick="@(() => CancelReservation(context.Id))">
+                        Cancel
+                    </MudButton>
+                }
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudContainer>
+
+@code {
+    private List<ReservationResponse> _reservations = new();
+    private bool _loading = true;
+    private string? _userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated != true)
+            {
+                NavigationManager.NavigateTo("/login");
+                return;
+            }
+
+            _userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (_userId != null)
+            {
+                _reservations = await ReservationService.GetReservationsByUserIdAsync(_userId);
+            }
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox(
+                "Error",
+                $"Failed to load reservations: {ex.Message}",
+                yesText: "OK");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task CancelReservation(Guid reservationId)
+    {
+        var result = await DialogService.ShowMessageBox(
+            "Cancel Reservation",
+            "Are you sure you want to cancel this reservation?",
+            yesText: "Yes", noText: "No");
+
+        if (result == true)
+        {
+            try
+            {
+                await ReservationService.UpdateReservationStatusAsync(reservationId, ReservationStatus.Cancelled);
+                _reservations = await ReservationService.GetReservationsByUserIdAsync(_userId!);
+                await DialogService.ShowMessageBox(
+                    "Success",
+                    "Reservation cancelled successfully.",
+                    yesText: "OK");
+            }
+            catch (Exception ex)
+            {
+                await DialogService.ShowMessageBox(
+                    "Error",
+                    $"Failed to cancel reservation: {ex.Message}",
+                    yesText: "OK");
+            }
+        }
+    }
+} 

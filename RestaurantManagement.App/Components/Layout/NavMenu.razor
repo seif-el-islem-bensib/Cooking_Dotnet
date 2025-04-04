@@ -1,0 +1,8 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+
+<MudNavMenu>
+    <MudNavLink Href="/admin" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
+    <MudNavLink Href="/admin/plates" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Restaurant">Plates</MudNavLink>
+    <MudNavLink Href="/admin/reservations" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Event">Reservations</MudNavLink>
+</MudNavMenu>

@@ -1,0 +1,118 @@
+@page "/admin"
+@layout AdminLayout
+@using RestaurantManagement.Core.Interfaces
+@using RestaurantManagement.Shared.DTOs.Plates
+@using RestaurantManagement.Shared.DTOs.Reservations
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+
+@inject IPlateService PlateService
+@inject IReservationService ReservationService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IDialogService DialogService
+@inject NavigationManager NavigationManager
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" Class="mb-4">Admin Dashboard</MudText>
+
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="4">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.h6">Total Plates</MudText>
+                    <MudText Typo="Typo.h3">@_totalPlates</MudText>
+                    <MudButton Href="/admin/plates" Color="Color.Primary" Class="mt-4">Manage Plates</MudButton>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="4">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.h6">Today's Reservations</MudText>
+                    <MudText Typo="Typo.h3">@_todayReservations</MudText>
+                    <MudButton Href="/admin/reservations" Color="Color.Primary" Class="mt-4">View Reservations</MudButton>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="4">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.h6">Total Users</MudText>
+                    <MudText Typo="Typo.h3">@_totalUsers</MudText>
+                    <MudButton Href="/admin/users" Color="Color.Primary" Class="mt-4">Manage Users</MudButton>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+
+    <MudCard Class="mt-4">
+        <MudCardHeader>
+            <MudText Typo="Typo.h6">Recent Reservations</MudText>
+        </MudCardHeader>
+        <MudCardContent>
+            <MudTable Items="@_recentReservations" Dense="true" Hover="true" Loading="@_loading">
+                <HeaderContent>
+                    <MudTh>Client</MudTh>
+                    <MudTh>Plate</MudTh>
+                    <MudTh>Date</MudTh>
+                    <MudTh>Status</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Client">@context.UserName</MudTd>
+                    <MudTd DataLabel="Plate">@context.PlateName</MudTd>
+                    <MudTd DataLabel="Date">@context.ReservationDate.ToString("g")</MudTd>
+                    <MudTd DataLabel="Status">@context.Status</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudCardContent>
+    </MudCard>
+</MudContainer>
+
+@code {
+    private int _totalPlates;
+    private int _todayReservations;
+    private int _totalUsers;
+    private List<ReservationResponse> _recentReservations = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            if (!user.IsInRole("Admin"))
+            {
+                NavigationManager.NavigateTo("/");
+                return;
+            }
+
+            var allPlates = await PlateService.GetAllPlatesAsync();
+            _totalPlates = allPlates.Count;
+
+            var todayReservations = await ReservationService.GetTodayReservationsAsync();
+            _todayReservations = todayReservations.Count;
+
+            // TODO: Implement user service
+            _totalUsers = 0;
+
+            _recentReservations = todayReservations
+                .OrderByDescending(r => r.ReservationDate)
+                .Take(5)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox(
+                "Error",
+                $"Failed to load dashboard data: {ex.Message}",
+                yesText: "OK");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+} 

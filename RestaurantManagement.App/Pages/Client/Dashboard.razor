@@ -1,0 +1,95 @@
+@page "/client"
+@layout ClientLayout
+@using RestaurantManagement.Core.Interfaces
+@using RestaurantManagement.Shared.DTOs.Plates
+@using RestaurantManagement.Shared.DTOs.Reservations
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+
+@inject IPlateService PlateService
+@inject IReservationService ReservationService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IDialogService DialogService
+
+<MudText Typo="Typo.h4" Class="mb-4">Welcome to Our Restaurant</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="6">
+        <MudCard>
+            <MudCardHeader>
+                <MudText Typo="Typo.h6">Recent Plates</MudText>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudList Dense="true">
+                    @foreach (var plate in _recentPlates)
+                    {
+                        <MudListItem>
+                            <MudText>@plate.Name - $@plate.Price.ToString("F2")</MudText>
+                        </MudListItem>
+                    }
+                </MudList>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Href="/client/plates" Color="Color.Primary">View All Plates</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudCard>
+            <MudCardHeader>
+                <MudText Typo="Typo.h6">Upcoming Reservations</MudText>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudList Dense="true">
+                    @foreach (var reservation in _upcomingReservations)
+                    {
+                        <MudListItem>
+                            <MudText>@reservation.PlateName - @reservation.ReservationDate.ToString("g")</MudText>
+                        </MudListItem>
+                    }
+                </MudList>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Href="/client/reservations" Color="Color.Primary">View All Reservations</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<PlateResponse> _recentPlates = new();
+    private List<ReservationResponse> _upcomingReservations = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userId != null)
+                {
+                    var allPlates = await PlateService.GetAllPlatesAsync();
+                    _recentPlates = allPlates.Take(5).ToList();
+
+                    var allReservations = await ReservationService.GetReservationsByUserIdAsync(userId);
+                    _upcomingReservations = allReservations
+                        .Where(r => r.ReservationDate >= DateTime.Now)
+                        .OrderBy(r => r.ReservationDate)
+                        .Take(5)
+                        .ToList();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox(
+                "Error",
+                $"Failed to load dashboard data: {ex.Message}",
+                yesText: "OK");
+        }
+    }
+} 

@@ -1,0 +1,46 @@
+@page "/register"
+@using RestaurantManagement.Shared.DTOs.Auth
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+    <MudCard>
+        <MudCardContent>
+            <MudText Typo="Typo.h5" Class="mb-4">Register</MudText>
+            <MudForm @ref="form" @bind-IsValid="@success">
+                <MudTextField T="string" Label="First Name" @bind-Value="registerRequest.FirstName" Required="true" RequiredError="First name is required!" />
+                <MudTextField T="string" Label="Last Name" @bind-Value="registerRequest.LastName" Required="true" RequiredError="Last name is required!" />
+                <MudTextField T="string" Label="Email" @bind-Value="registerRequest.Email" Required="true" RequiredError="Email is required!" />
+                <MudTextField T="string" Label="Password" @bind-Value="registerRequest.Password" Required="true" RequiredError="Password is required!" InputType="InputType.Password" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="HandleRegister" Disabled="@(!success)">Register</MudButton>
+            </MudForm>
+            <MudText Class="mt-4">
+                Already have an account? <MudLink Href="/login">Login here</MudLink>
+            </MudText>
+        </MudCardContent>
+    </MudCard>
+</MudContainer>
+
+@code {
+    public required MudForm form;
+    private bool success;
+    private RegisterRequest registerRequest = new();
+
+    private async Task HandleRegister()
+    {
+        await form.Validate();
+        if (form.IsValid)
+        {
+            try
+            {
+                var response = await AuthService.RegisterAsync(registerRequest);
+                NavigationManager.NavigateTo("/client");
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add(ex.Message, Severity.Error);
+            }
+        }
+    }
+} 

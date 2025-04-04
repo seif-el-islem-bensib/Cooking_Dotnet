@@ -1,0 +1,32 @@
+@page "/"
+@using MudBlazor
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h3" Class="mb-4">Welcome to Restaurant Management</MudText>
+    
+    <MudGrid>
+        <MudItem xs="12" sm="6">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.h5">Client Dashboard</MudText>
+                    <MudText>View and reserve plates</MudText>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/client">Go to Client Dashboard</MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+        
+        <MudItem xs="12" sm="6">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.h5">Admin Dashboard</MudText>
+                    <MudText>Manage plates and reservations</MudText>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" Href="/admin">Go to Admin Dashboard</MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</MudContainer> 

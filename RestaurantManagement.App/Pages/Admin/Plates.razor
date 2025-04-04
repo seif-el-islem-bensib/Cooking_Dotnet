@@ -1,0 +1,151 @@
+@page "/admin/plates"
+@layout AdminLayout
+@using RestaurantManagement.Core.Interfaces
+@using RestaurantManagement.Shared.DTOs.Plates
+@using RestaurantManagement.App.Components
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+
+@inject IPlateService PlateService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IDialogService DialogService
+@inject NavigationManager NavigationManager
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" Class="mb-4">Manage Plates</MudText>
+
+    <MudButton Color="Color.Primary" 
+              Variant="Variant.Filled" 
+              OnClick="OpenCreateDialog" 
+              Class="mb-4">
+        Add New Plate
+    </MudButton>
+
+    <MudTable Items="@_plates" Dense="true" Hover="true" Loading="@_loading">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Description</MudTh>
+            <MudTh>Price</MudTh>
+            <MudTh>Available</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name">@context.Name</MudTd>
+            <MudTd DataLabel="Description">@context.Description</MudTd>
+            <MudTd DataLabel="Price">$@context.Price.ToString("F2")</MudTd>
+            <MudTd DataLabel="Available">
+                <MudSwitch @bind-Value="@context.IsAvailable" Color="Color.Primary" />
+            </MudTd>
+            <MudTd>
+                <MudButton Color="Color.Primary" 
+                          Size="Size.Small"
+                          OnClick="@(() => OpenEditDialog(context))">
+                    Edit
+                </MudButton>
+                <MudButton Color="Color.Error" 
+                          Size="Size.Small"
+                          OnClick="@(() => DeletePlate(context.Id))">
+                    Delete
+                </MudButton>
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudContainer>
+
+@code {
+    private List<PlateResponse> _plates = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (!user.IsInRole("Admin"))
+            {
+                NavigationManager.NavigateTo("/");
+                return;
+            }
+
+            await LoadPlates();
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox(
+                "Error",
+                $"Failed to load plates: {ex.Message}",
+                yesText: "OK");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadPlates()
+    {
+        _plates = await PlateService.GetAllPlatesAsync();
+    }
+
+    private async Task OpenCreateDialog()
+    {
+        var dialog = await DialogService.ShowAsync<PlateDialog>(
+            "Create Plate",
+            new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small });
+
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            await LoadPlates();
+        }
+    }
+
+    private async Task OpenEditDialog(PlateResponse plate)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Plate", plate }
+        };
+
+        var dialog = await DialogService.ShowAsync<PlateDialog>(
+            "Edit Plate",
+            parameters,
+            new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small });
+
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            await LoadPlates();
+        }
+    }
+
+    private async Task DeletePlate(Guid id)
+    {
+        var result = await DialogService.ShowMessageBox(
+            "Delete Plate",
+            "Are you sure you want to delete this plate?",
+            yesText: "Yes", noText: "No");
+
+        if (result == true)
+        {
+            try
+            {
+                await PlateService.DeletePlateAsync(id);
+                await LoadPlates();
+                await DialogService.ShowMessageBox(
+                    "Success",
+                    "Plate deleted successfully.",
+                    yesText: "OK");
+            }
+            catch (Exception ex)
+            {
+                await DialogService.ShowMessageBox(
+                    "Error",
+                    $"Failed to delete plate: {ex.Message}",
+                    yesText: "OK");
+            }
+        }
+    }
+} 
